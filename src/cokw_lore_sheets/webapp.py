@@ -42,6 +42,18 @@ class WebAppProvider:
                 raise ValueError("Web app returned a repeated page token")
             seen.add(page)
 
+    def list_folders(self, parent_id):
+        folders, page, seen = [], None, set()
+        while True:
+            result = self.call("folders", parent_id=parent_id, page_token=page)
+            folders.extend(result.get("folders", []))
+            page = result.get("nextPageToken")
+            if not page:
+                return folders
+            if page in seen:
+                raise ValueError("Web app returned a repeated folder page token")
+            seen.add(page)
+
     def fetch(self, file, config):
         result = self.call("fetch", file_id=file["id"],
                            include_results=config["include_results"],

@@ -87,6 +87,28 @@ class GoogleProvider:
                 raise ValueError("Drive returned a repeated page token")
             seen.add(token)
 
+    def list_folders(self, parent_id):
+        parent = self.drive.files().get(fileId=parent_id, fields="id,mimeType,trashed",
+                                       supportsAllDrives=True).execute(num_retries=3)
+        if parent.get("trashed") or parent.get("mimeType") != "application/vnd.google-apps.folder":
+            raise ValueError("Configured folder is not an accessible, active folder")
+        folders, token, seen = [], None, set()
+        while True:
+            result = self.drive.files().list(
+                q=f"'{parent_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+                pageSize=1000, pageToken=token, spaces="drive", supportsAllDrives=True,
+                includeItemsFromAllDrives=True, fields="nextPageToken,incompleteSearch,files(id)"
+            ).execute(num_retries=3)
+            if result.get("incompleteSearch"):
+                raise ValueError("Drive returned an incomplete folder search")
+            folders.extend(item["id"] for item in result.get("files", []))
+            token = result.get("nextPageToken")
+            if not token:
+                return folders
+            if token in seen:
+                raise ValueError("Drive returned a repeated folder page token")
+            seen.add(token)
+
     def fetch(self, file, config):
         # Optimistic consistency check per spreadsheet; no account-wide transaction is claimed.
         for _ in range(3):

@@ -78,11 +78,22 @@ def normalize(metadata, spreadsheet, config):
 
 def capture(provider, config):
     start = utc_now()
-    catalog = provider.list_files(config["files"])
+    selection = dict(config["files"])
+    if selection.get("recursive") and selection["folder_ids"]:
+        pending = list(selection["folder_ids"])
+        visited = set()
+        while pending:
+            folder = pending.pop()
+            if folder in visited:
+                continue
+            visited.add(folder)
+            pending.extend(child for child in provider.list_folders(folder) if child not in visited)
+        selection["folder_ids"] = sorted(visited)
+    catalog = provider.list_files(selection)
     if len({f["id"] for f in catalog}) != len(catalog):
         raise ValueError("Duplicate file IDs in catalog")
     files, errors = [], []
-    chosen = [f for f in catalog if selected(f, config["files"])]
+    chosen = [f for f in catalog if selected(f, selection)]
     missing = set(config["files"]["file_ids"]) - {f["id"] for f in catalog}
     errors.extend({"file_id": fid, "error": "Configured file is not visible in the selected catalog"}
                   for fid in sorted(missing))

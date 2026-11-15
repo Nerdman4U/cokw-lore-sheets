@@ -22,3 +22,9 @@ reports/
 # Private Apps Script deployment binding
 .clasp.json
 .clasprc.json
+
+# Private local audit captures
+tmp/
+
+# Private manually exported audit report
+/testi.txt

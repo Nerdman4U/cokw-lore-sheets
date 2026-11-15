@@ -36,6 +36,12 @@ def parser():
     check.add_argument("--config", required=True, type=Path)
     check.add_argument("--baseline", type=Path)
     check.add_argument("--output", type=Path)
+    check.add_argument("--format", choices=("json", "summary"), default="json")
+    listing = sub.add_parser("list", help="List cells targeted by configured checks, offline")
+    listing.add_argument("snapshot", type=Path)
+    listing.add_argument("--config", required=True, type=Path)
+    listing.add_argument("--format", choices=("tsv", "json"), default="tsv")
+    listing.add_argument("--output", type=Path)
     diff = sub.add_parser("compare", help="Compare two complete snapshots, offline")
     diff.add_argument("before", type=Path)
     diff.add_argument("after", type=Path)
@@ -59,6 +65,21 @@ def main(argv=None):
             emit(report)
             return 1 if report["has_changes"] else 0
         config = validate(load_json(args.config))
+        if args.command == "list":
+            from .listing import list_cells, render
+            from .storage import write_text
+            snapshot = validate_snapshot(load_json(args.snapshot), complete=False)
+            report = list_cells(snapshot, config)
+            text = render(report, args.format)
+            if args.output:
+                write_text(args.output, text)
+            else:
+                sys.stdout.write(text)
+            for issue in report["issues"]:
+                print("Listing issue: " + json.dumps(issue, ensure_ascii=False), file=sys.stderr)
+            if not report["source_complete"]:
+                return 2
+            return 1 if report["issues"] else 0
         baseline = validate_snapshot(load_json(args.baseline)) if args.baseline else None
         if any(r["test"] == "unchanged" for r in config["checks"]) and baseline is None:
             raise ValueError("An unchanged check requires --baseline")
@@ -88,11 +109,20 @@ def main(argv=None):
                 return 2
             return 0 if snapshot["checks"]["passed"] else 1
         snapshot = validate_snapshot(load_json(args.snapshot))
-        if snapshot["selection"] != config["files"] or snapshot["include_results"] != config["include_results"]:
-            raise ValueError("Config capture selection differs from the snapshot")
+        if snapshot["include_results"] != config["include_results"]:
+            raise ValueError("Config include_results differs from the snapshot")
         if baseline:
             compatible(baseline, snapshot)
         report = evaluate(snapshot, config, baseline)
+        if args.format == "summary":
+            from .checks import summary_lines
+            from .storage import write_text
+            text = "\n".join(summary_lines(snapshot, config, report)) + "\n"
+            if args.output:
+                write_text(args.output, text)
+            else:
+                sys.stdout.write(text)
+            return 0 if report["passed"] and config["checks"] else 1
         if args.output:
             write_json(args.output, report)
         emit(report)

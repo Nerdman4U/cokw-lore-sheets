@@ -1,7 +1,7 @@
 """Small, validated JSON configuration; no executable code in rules."""
 import re
 
-TESTS = {"formula_matches", "value_matches", "not_empty", "no_error", "unchanged"}
+TESTS = {"formula_matches", "value_matches", "not_empty", "no_error", "unchanged", "sheet_name_matches"}
 
 
 def regex(pattern):
@@ -63,7 +63,7 @@ def validate(raw):
         raise ValueError("Unsupported configuration version")
     files = raw.get("files", {})
     if not isinstance(files, dict) or set(files) - {
-        "name_pattern", "owned_only", "folder_ids", "file_ids"
+        "name_pattern", "owned_only", "folder_ids", "file_ids", "recursive"
     }:
         raise ValueError("Invalid files configuration")
     files = {"name_pattern": ".*", "owned_only": True,
@@ -71,6 +71,8 @@ def validate(raw):
     regex(files["name_pattern"])
     if type(files["owned_only"]) is not bool:
         raise ValueError("owned_only must be a boolean")
+    if "recursive" in files and type(files["recursive"]) is not bool:
+        raise ValueError("recursive must be a boolean")
     for key in ("folder_ids", "file_ids"):
         if not isinstance(files[key], list) or any(
             not isinstance(v, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", v)
@@ -100,7 +102,8 @@ def validate(raw):
             raise ValueError(f"Unknown test in check {name}")
         regex(rule["file_pattern"]); regex(rule["sheet_pattern"])
         # Validate syntax before any API request, without imposing actual grid limits.
-        bounds(rule["range"], 10_000_000, 18_278)
+        if rule["test"] != "sheet_name_matches":
+            bounds(rule["range"], 10_000_000, 18_278)
         if rule["test"].endswith("_matches"):
             if "pattern" not in rule:
                 raise ValueError(f"Check {name} needs pattern")

@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import os
+import subprocess
 
 
 def data_dir():
@@ -17,16 +18,32 @@ def load_json(path):
                       parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f"Invalid JSON number: {value}")))
 
 
-def private_path(path):
+def private_path(path, allow_ignored=False):
     path = Path(path).expanduser().resolve()
     if any((p / ".git").exists() for p in (path.parent, *path.parents)):
-        raise ValueError("Keep private snapshots, reports and tokens outside Git repositories")
+        ignored = False
+        if allow_ignored:
+            try:
+                ignored = subprocess.run(
+                    ["git", "check-ignore", "--quiet", "--", str(path)],
+                    cwd=path.parent if path.parent.is_dir() else next(p for p in path.parents if p.is_dir()),
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10
+                ).returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        if not ignored:
+            raise ValueError("Keep private snapshots and reports outside Git or in an explicitly ignored directory; tokens must stay outside Git")
     return path
 
 
 def write_json(path, value):
-    path = private_path(path)
     text = json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
+    return write_text(path, text)
+
+
+def write_text(path, text):
+    """Save UTF-8 text with the same privacy and no-overwrite rules as snapshots."""
+    path = private_path(path, allow_ignored=True)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:

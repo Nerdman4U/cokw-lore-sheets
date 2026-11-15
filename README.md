@@ -98,7 +98,7 @@ Only **drive.metadata.readonly** and **spreadsheets.readonly** are requested. Th
 
 Use **--token PATH** on auth and dump for another private token. Refresh tokens are used without opening a browser during ordinary dumps. If authorization expires or is revoked, run auth again. OAuth testing/consent and verification requirements depend on your Google Cloud configuration. Publishing this source does not supply a shared OAuth client.
 
-The tool refuses to write tokens, snapshots or reports inside a Git working tree. The ignore file also excludes common credentials, local config and capture names. Keep your downloaded client JSON and private config outside Git too. Snapshots can contain confidential spreadsheet contents.
+Tokens must stay outside Git. Snapshots and reports may be written inside a Git working tree only when git check-ignore confirms the destination is ignored (for example tmp/); tracked files are never exempted. The ignore file also excludes common credentials, local config and capture names. Keep your downloaded client JSON and private config outside Git too. Snapshots can contain confidential spreadsheet contents.
 
 Google references:
 
@@ -200,3 +200,66 @@ python -m unittest discover -s tests -v
 ~~~
 
 No scheduling is installed automatically. An OS scheduler can invoke dump nightly and invoke a morning dump followed by compare. Automatic baseline selection and a built-in scheduler are outside v1.
+
+## Recursive folder selection
+
+Set **files.folder_ids** to one or more Drive folder IDs and **files.recursive** to **true** to capture spreadsheets directly in those folders and all descendant folders. The default is false (direct children only). Roots remain in the snapshot selection; newly discovered descendants do not change the comparison scope. Overlapping roots and repeated folders are visited once. Folder-read failures abort catalog discovery rather than implying deletions. Folder shortcuts are not followed. Other file filters still apply: set **owned_only: false** to include accessible spreadsheets owned by others within the selected tree. With no folder IDs, recursive has no effect.
+
+~~~json
+{"version":1,"files":{"folder_ids":["YOUR_FOLDER_ID"],"recursive":true,"owned_only":false},"checks":[]}
+~~~
+
+The web app must be updated to the version that supports the **folders** action. No new Google scopes are required. A previously unrestricted dump and a folder-scoped dump have different selections and cannot be compared; capture a fresh baseline with the new configuration.
+
+## List configured check targets (offline)
+
+Use **list** to inspect the cells selected by the **checks** array without evaluating the rules or contacting Google:
+
+~~~text
+cokw-lore-sheets list /private/evening.snapshot.json --config /private/config.json
+cokw-lore-sheets list /private/evening.snapshot.json --config /private/config.json --output /private/imports.tsv
+cokw-lore-sheets list /private/evening.snapshot.json --config /private/config.json --format json --output /private/imports.json
+~~~
+
+The default TSV shows the check name, file name/ID, sheet name/ID, address, formula, typed input and result. JSON also includes the test name and an issues array. Output files use UTF-8 and are never overwritten. Blank targeted cells are included; multiple checks targeting the same cell produce separate rows identified by check name. Values are displayed even if they fail the check: listing does not mean validation passed. An **unchanged** check can be listed without a baseline.
+
+For listing, **checks** and **max_check_cells** select cells from the already captured snapshot. The config's capture selection (**files**, **include_results**) does not recapture or filter the source; this permits inspecting an older snapshot with a new check configuration. Missing results are JSON null when results were not captured. The stored capture selection is unchanged.
+
+A rule with no matching files or no matching sheets anywhere is reported explicitly, as are invalid or oversized ranges. Files with no matching sheets are skipped; **list**, **check** and summaries share this two-stage targeting behavior. An empty checks array is also reported. Exit codes: 0 = listing complete, 1 = target-selection issues, 2 = incomplete source or input/output error. Incomplete dumps may be inspected but are clearly reported and never count as a successful complete listing. Snapshot hashes are validated before listing.
+
+A generic rule to list import cells, including wrapped formulas such as IF(...IMPORTRANGE(...)), is:
+
+~~~json
+{"name":"Import formula in A1","file_pattern":".*","sheet_pattern":"^IMP_","range":"A1","test":"formula_matches","pattern":"(?i)\\bIMPORTRANGE\\s*\\("}
+~~~
+
+This regex is a configurable text check, not a formula parser. **list** shows all matched cells, **check** evaluates the rule, and **compare** compares two captures.
+
+## Concise check status
+
+~~~text
+cokw-lore-sheets check /private/evening.snapshot.json --config /private/config.json --format summary
+cokw-lore-sheets check /private/evening.snapshot.json --config /private/config.json --format summary --output /private/status.txt
+~~~
+
+Summary output is one **file-sheet OK** or **file-sheet ERROR** line per targeted file/sheet pair. Checks are grouped by stable IDs: any failed check or checked cell makes that target ERROR. A rule with no matching files or no matching sheets anywhere produces an ERROR row using the unmatched pattern. Files without targeted sheets are skipped. Empty checks produce **checks ERROR**. Exit code 0 means all configured checks passed, 1 means check/target failures, 2 means an input/output error. Use the default **--format json** for detailed failure reasons. Summary output is UTF-8 and never overwrites an existing report.
+
+Offline **check**, like **list**, applies the checks to the existing snapshot; the config's **files** capture selection does not filter or recapture it. The captured **include_results** setting must still match for check evaluation. Baseline comparisons continue to require compatible capture selections. This lets you inspect an existing evening snapshot after changing the next dump's folder configuration.
+
+Check targeting has two stages: **file_pattern** limits candidate files, then **sheet_pattern** selects target sheets within them. Only files with at least one target sheet take part in that rule. Finally, every cell in the configured range on each selected sheet is evaluated against the test/pattern. Selecting **^IMP_** never requires every candidate file to contain an import sheet. A rule matching no sheets in the entire capture still reports an error instead of silently passing.
+
+## Check sheet names
+
+**sheet_name_matches** validates the name itself once per selected sheet, without reading a cell or using **range**. Selection and validation remain separate: **file_pattern** selects candidate files, **sheet_pattern** selects sheets, and **pattern** defines the requirement for each selected name. All patterns use regex search; use ^ and $ for a whole-name requirement.
+
+~~~json
+{
+  "name": "Import sheet naming convention",
+  "file_pattern": ".*",
+  "sheet_pattern": "^IMP_",
+  "test": "sheet_name_matches",
+  "pattern": "^IMP_[A-Za-z0-9_.]+$"
+}
+~~~
+
+**list** displays one row per selected name with a blank Cell column, the name as typed Input, and no calculated Result. JSON marks the row **target: sheet_name** and **cell: null**. **check --format summary** groups name and cell checks on the same file/sheet: any failed requirement makes that line ERROR. Name checks work even when a sheet has no grid/cells or results were not captured. Missing **pattern** or an invalid regex is rejected before evaluation.

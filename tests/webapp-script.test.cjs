@@ -17,7 +17,9 @@ const ctx=vm.createContext({Date,console,
  Session:{getEffectiveUser:()=>({getEmail:()=> 'owner@example.invalid'})},
  Utilities:{DigestAlgorithm:{SHA_256:'sha'},computeDigest:()=>[1,-1],formatDate:()=> '2026-01-01T00:00:00.000'},
  DriveApp:{searchFiles:()=>{count++;return iterator([file]);},continueFileIterator:()=>iterator([]),
- getFileById:()=>file,getFilesByType:()=>iterator([file])},
+ getFileById:()=>file,getFilesByType:()=>iterator([file]),
+ getFolderById:()=>({isTrashed:()=>false,getFolders:()=>iterator([{getId:()=> 'child',isTrashed:()=>false},{getId:()=> 'deleted',isTrashed:()=>true}])}),
+ continueFolderIterator:()=>iterator([])},
  MimeType:{GOOGLE_SHEETS:'application/vnd.google-apps.spreadsheet'},
  SpreadsheetApp:{openById:()=>book}
 });
@@ -43,5 +45,7 @@ assert.equal(run(request).error,'UNSTABLE_READ');
 file.getLastUpdated=()=>new Date(modified);
 sheet.getType=()=> 'OBJECT';assert.equal(run(request).error,'UNSUPPORTED_SHEET');
 assert.equal(ctx.scalar_(new Date('2026-01-01T00:00:00Z'),'Etc/UTC').numberValue,46023);
+assert.equal(run({api_key:'secret',action:'folders',parent_id:'root'}).data.folders.join(','),'child');
+assert.equal(run({api_key:'secret',action:'folders',parent_id:'../bad'}).error,'INVALID_REQUEST');
 ctx.authorize();
 console.log('Built-in service contract tests passed');

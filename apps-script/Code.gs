@@ -26,6 +26,7 @@ function doPost(e) {
     let data;
     if (request.action === 'about') data = {account_id:identity_(),capture_profile:'builtin-values-v1'};
     else if (request.action === 'list') data = list_(request);
+    else if (request.action === 'folders') data = folders_(request);
     else if (request.action === 'fetch') {
       if (!id_(request.file_id) || typeof request.include_results !== 'boolean'
           || !Number.isSafeInteger(request.max_cells_per_sheet) || request.max_cells_per_sheet < 1)
@@ -52,6 +53,19 @@ function list_(request) {
       files.push(file);
   }
   return {files:files,nextPageToken:iterator.hasNext() ? iterator.getContinuationToken() : undefined};
+}
+function folders_(request) {
+  if (!id_(request.parent_id) || (request.page_token != null && typeof request.page_token !== 'string'))
+    throw new Error('INVALID_REQUEST');
+  const parent = DriveApp.getFolderById(request.parent_id);
+  if (parent.isTrashed()) throw new Error('INVALID_REQUEST');
+  const iterator = request.page_token ? DriveApp.continueFolderIterator(request.page_token) : parent.getFolders();
+  const folders = [];
+  for (let n=0;n<100 && iterator.hasNext();n++) {
+    const child = iterator.next();
+    if (!child.isTrashed()) folders.push(child.getId());
+  }
+  return {folders:folders,nextPageToken:iterator.hasNext() ? iterator.getContinuationToken() : undefined};
 }
 function scalar_(value, timeZone) {
   if (value instanceof Date) {

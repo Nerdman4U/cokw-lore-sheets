@@ -4,7 +4,8 @@
     "name_pattern": ".*",
     "owned_only": true,
     "folder_ids": [],
-    "file_ids": []
+    "file_ids": [],
+    "recursive": false
   },
   "include_results": true,
   "max_cells_per_sheet": 5000000,
