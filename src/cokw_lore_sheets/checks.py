@@ -61,6 +61,10 @@ def evaluate(snapshot, config, baseline=None):
                             ok = bool(entered) and entered.get("stringValue") != ""
                         elif test == "no_error":
                             ok = "errorValue" not in result
+                            if snapshot["account_id"].startswith("builtin-values-v1:"):
+                                ok = ok and result.get("stringValue") not in {
+                                    "#ERROR!", "#REF!", "#DIV/0!", "#VALUE!", "#N/A",
+                                    "#NAME?", "#NUM!", "#NULL!", "#SPILL!", "#CALC!"}
                         else:
                             basis = rule["basis"]
                             ok = cell.get(basis, {}) == previous["cells"].get(addr, {}).get(basis, {})

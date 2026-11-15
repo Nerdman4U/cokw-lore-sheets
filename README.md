@@ -28,11 +28,46 @@ python -m venv .venv
 Activate the virtual environment, then:
 
 ~~~text
-python -m pip install -e ".[google]"
+python -m pip install -e .
 cokw-lore-sheets --help
 ~~~
 
-From a checkout, **python sheets.py ...** also works. On Windows, add the repository's **bin** directory to PATH to use its .cmd launcher. Offline commands and tests need only the Python standard library. The **google** extra is required for live access and authorization.
+From a checkout, **python sheets.py ...** also works. On Windows, add the repository's **bin** directory to PATH to use its .cmd launcher. Offline commands and tests need only the Python standard library. The default Apps Script transport needs only the standard library. The optional **google** extra supports direct OAuth access.
+
+## Apps Script web app (default)
+
+1. Create your own Apps Script project. Copy **apps-script/Code.gs** into it.
+2. In project settings, show the manifest and copy **apps-script/appsscript.json** into it.
+3. In Script properties, add **LORE_SHEETS_API_KEY** with a long random secret of your own. Do not put it in source code.
+4. The default Apps Script project uses built-in **DriveApp** and **SpreadsheetApp**; no Advanced Services or separate REST API activation is needed. A manually associated standard Cloud project may require Drive API enablement under Google's project rules.
+5. Run **authorize** in the editor and approve the requested permissions.
+6. Deploy as **Web app**, execute as **Me**, access **Anyone**. Copy the deployed **/exec** URL.
+7. Set **LORE_SHEETS_WEB_APP_URL** and **LORE_SHEETS_API_KEY** in your local environment. Use the same key value as the Script property. Open a new terminal after persistent environment changes.
+8. Copy examples/config.example.json outside the repository, adjust it, and run:
+
+~~~text
+cokw-lore-sheets dump --config /private/config.json
+~~~
+
+No local Google OAuth client or token is needed. The web app executes with its publisher's granted permissions. Each request is authenticated with the key in a JSON POST body; POST is only the transport and does not modify spreadsheets. Each file is captured in a separate request and file listings are paginated. The snapshot structure stays the same, but built-in captures use a separate account/profile identifier and cannot be compared with direct API captures.
+
+Use **--web-app-url URL** to override the environment URL. The secret is read only from the environment. Public deployment does not mean unauthenticated access to the audit data: every action requires the key. Do not reuse the engine's key. Keep the web app URL and key out of public examples and shell history. Update the deployment to a new version after changing script code.
+
+Large spreadsheets can exceed Apps Script execution or response limits. Such failures produce incomplete captures, never a successful empty capture; narrow the file selection or use the optional direct OAuth transport for these cases. Offline compare/check commands are unchanged.
+
+See [Google's web app deployment guide](https://developers.google.com/apps-script/guides/web).
+
+### Built-in capture limits
+
+Built-in **getFormulas/getValues** preserve explicit formulas and typed non-formula values, including numbers, booleans and dates (converted to spreadsheet-local serial values). They cannot distinguish array/spill outputs from manually entered values, or distinguish a formula error from identical text. Formula-result changes in spill cells can therefore affect the input hash. Empty strings and empty cells are also indistinguishable. **no_error** checks conservatively treat recognized error strings as failures, including literal error text. Use direct OAuth capture when exact user-entered cell provenance or structured errors are required.
+
+Built-in reads use before/after modification timestamps and metadata instead of Drive revision numbers. This is a weaker concurrent-edit check, not a transactional snapshot. Shared-drive support depends on DriveApp availability; direct OAuth remains the adapter for full shared-drive support. Unsupported non-grid sheets fail explicitly. Named ranges use their names as keys rather than API range IDs. The account/profile prefix prevents comparison against snapshots captured with the previous REST implementation. Start a new baseline after this update.
+
+The built-in manifest requests **drive.readonly**, **spreadsheets**, and **userinfo.email**. SpreadsheetApp.openById requires the full spreadsheets scope even for reads; the implementation uses no write methods. The optional direct OAuth adapter retains its read-only scopes. The effective user's email is hashed for stable audit identity and is not returned in clear text. No spreadsheet or Drive write operations are used. After updating from the REST version, run **authorize** again to grant the changed scopes.
+
+## Optional direct OAuth transport
+
+Install **python -m pip install -e ".[google]"** and pass **--transport oauth** to dump to use the original direct Google API adapter.
 
 ## Private configuration and authorization
 

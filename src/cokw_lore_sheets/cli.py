@@ -27,6 +27,8 @@ def parser():
     dump.add_argument("--config", required=True, type=Path)
     dump.add_argument("--output", type=Path)
     dump.add_argument("--baseline", type=Path, help="Previous complete snapshot for unchanged checks")
+    dump.add_argument("--transport", choices=("webapp", "oauth"), default="webapp")
+    dump.add_argument("--web-app-url", help="Defaults to LORE_SHEETS_WEB_APP_URL")
     dump.add_argument("--token", type=Path, default=data_dir() / "token.json")
     dump.add_argument("--fixture", type=Path, help="Use a synthetic offline source instead of Google")
     check = sub.add_parser("check", help="Run checks on an existing snapshot, offline")
@@ -64,6 +66,9 @@ def main(argv=None):
             if args.fixture:
                 from .fixture import FixtureProvider
                 provider = FixtureProvider(args.fixture)
+            elif args.transport == "webapp":
+                from .webapp import WebAppProvider
+                provider = WebAppProvider(args.web_app_url)
             else:
                 from .google import GoogleProvider
                 provider = GoogleProvider(args.token)

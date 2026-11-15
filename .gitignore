@@ -18,3 +18,7 @@ reports/
 *.dump.json
 *.report.json
 .pytest_cache/
+
+# Private Apps Script deployment binding
+.clasp.json
+.clasprc.json

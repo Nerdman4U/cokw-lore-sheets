@@ -12,3 +12,6 @@ Build a general-purpose, public Python command-line tool for auditing Google She
 - Report read errors and unmatched checks explicitly. Incomplete captures must not produce deletion claims.
 - Test behavior using synthetic data, including failure cases. Run python -m unittest discover -s tests.
 - Do not publish or push without an explicit user request.
+
+- Apps Script web app uses built-in DriveApp and SpreadsheetApp only; no UrlFetchApp or Advanced Services. Document built-in capture limitations and keep its baseline profile separate from exact API captures.
+- Run node tests/webapp-script.test.cjs when changing the Apps Script adapter.
