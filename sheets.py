@@ -1,0 +1,9 @@
+"""Run the CLI from a checkout without installing the package."""
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+from cokw_lore_sheets.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())

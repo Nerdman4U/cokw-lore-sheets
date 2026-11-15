@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "files": {
+    "name_pattern": ".*",
+    "owned_only": true,
+    "folder_ids": [],
+    "file_ids": []
+  },
+  "include_results": true,
+  "max_cells_per_sheet": 5000000,
+  "max_check_cells": 100000,
+  "checks": [
+    {
+      "name": "Import formula in A1",
+      "file_pattern": ".*",
+      "sheet_pattern": "^IMP_",
+      "range": "A1",
+      "test": "formula_matches",
+      "pattern": "(?i)^=IMPORTRANGE\\s*\\("
+    },
+    {
+      "name": "Import has no calculation error",
+      "file_pattern": ".*",
+      "sheet_pattern": "^IMP_",
+      "range": "A1",
+      "test": "no_error"
+    }
+  ]
+}

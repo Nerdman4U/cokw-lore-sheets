@@ -1,0 +1,44 @@
+{
+  "account": "synthetic-demo",
+  "files": [
+    {
+      "metadata": {
+        "id": "synthetic-book",
+        "name": "Demonstration workbook",
+        "parents": [],
+        "ownedByMe": true,
+        "version": "1"
+      },
+      "spreadsheet": {
+        "spreadsheetId": "synthetic-book",
+        "properties": {"title": "Demonstration workbook", "locale": "en_US", "timeZone": "UTC"},
+        "sheets": [
+          {
+            "properties": {
+              "sheetId": 0,
+              "title": "IMP_Source",
+              "index": 0,
+              "sheetType": "GRID",
+              "gridProperties": {"rowCount": 10, "columnCount": 3}
+            },
+            "data": [{
+              "rowData": [
+                {"values": [
+                  {"userEnteredValue": {"formulaValue": "=IMPORTRANGE(\"synthetic-source\", \"Data!A1:B2\")"}, "effectiveValue": {"numberValue": 12}}
+                ]},
+                {"values": [
+                  {"userEnteredValue": {"numberValue": 3}, "effectiveValue": {"numberValue": 3}},
+                  {"userEnteredValue": {"formulaValue": "=A2*2"}, "effectiveValue": {"numberValue": 6}}
+                ]},
+                {"values": [
+                  {"userEnteredValue": {"numberValue": 4}, "effectiveValue": {"numberValue": 4}},
+                  {"userEnteredValue": {"formulaValue": "=A3*2"}, "effectiveValue": {"numberValue": 8}}
+                ]}
+              ]
+            }]
+          }
+        ]
+      }
+    }
+  ]
+}

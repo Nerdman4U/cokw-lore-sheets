@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cokw-lore-sheets"
+version = "0.1.0"
+description = "Read-only Google Sheets snapshots, configurable checks and offline comparisons"
+requires-python = ">=3.11"
+readme = "README.md"
+
+[project.optional-dependencies]
+google = ["google-api-python-client>=2,<3", "google-auth-oauthlib>=1,<2"]
+
+[project.scripts]
+cokw-lore-sheets = "cokw_lore_sheets.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
