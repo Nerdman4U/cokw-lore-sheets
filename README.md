@@ -1,5 +1,15 @@
 # cokw-lore-sheets
 
+| Project | Details |
+| --- | --- |
+| Implementation | OpenAI Codex / ChatGPT |
+| Model | GPT-6.1 Sol Light (as reported by the user's interface) |
+| Design and development | In collaboration with the project maintainer |
+| Version | 0.1.0 (initial release) |
+| Updated | 2026-11-15 |
+| Runtime | Python 3.11+; Google Apps Script V8 for the web app |
+| Purpose | Google Sheets audit snapshots, configurable checks and offline comparisons |
+
 A general-purpose, read-only Google Sheets auditing CLI. Capture an evening snapshot, capture another in the morning, and compare them offline. Code, tests and examples contain no user-specific file IDs, credentials or application-specific data.
 
 ## First version
