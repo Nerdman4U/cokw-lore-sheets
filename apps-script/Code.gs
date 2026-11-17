@@ -1,4 +1,4 @@
-/** Built-in Apps Script services only. All Drive/Sheets operations are read-only. */
+/** Built-in Apps Script services only. Audit operations are read-only; TMP regeneration is an explicit separate action. */
 function reply_(value) {
   return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -26,6 +26,7 @@ function doPost(e) {
     let data;
     if (request.action === 'about') data = {account_id:identity_(),capture_profile:'builtin-values-v1'};
     else if (request.action === 'list') data = list_(request);
+    else if (request.action === 'regenerationSchema' || request.action === 'regenerate') data = tmpRegeneration_(request);
     else if (request.action === 'folders') data = folders_(request);
     else if (request.action === 'fetch') {
       if (!id_(request.file_id) || typeof request.include_results !== 'boolean'
@@ -35,6 +36,7 @@ function doPost(e) {
     } else throw new Error('INVALID_REQUEST');
     return reply_({ok:true,data:data});
   } catch (error) {
+    if (typeof TmpRegenerationError !== 'undefined' && error instanceof TmpRegenerationError) return reply_({ok:false,error:error.message});
     const allowed = ['INVALID_REQUEST','UNSTABLE_READ','SHEET_TOO_LARGE','ACCOUNT_UNAVAILABLE','UNSUPPORTED_SHEET'];
     return reply_({ok:false,error:allowed.includes(error.message) ? error.message : 'GOOGLE_READ_FAILED'});
   }

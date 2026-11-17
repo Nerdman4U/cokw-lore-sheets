@@ -17,7 +17,7 @@ def emit(value):
 
 
 def parser():
-    p = argparse.ArgumentParser(description="Read-only Google Sheets audit snapshots and comparisons")
+    p = argparse.ArgumentParser(description="Google Sheets audits and explicit schema-driven TMP regeneration")
     p.add_argument("--version", action="version", version="0.1.0")
     sub = p.add_subparsers(dest="command", required=True)
     auth = sub.add_parser("auth", help="Authorize read-only access in a browser")
@@ -47,12 +47,22 @@ def parser():
     diff.add_argument("after", type=Path)
     diff.add_argument("--results", action="store_true", help="Include per-cell calculated result changes")
     diff.add_argument("--output", type=Path)
+    regen = sub.add_parser("regenerate", help="Regenerate assigned TMP sheets, preserving keyed inputs")
+    regen.add_argument("file_id", help="Registered spreadsheet ID")
+    regen.add_argument("sheet_name", nargs="?", help="One assigned TMP_ sheet; default: all assigned schemas")
+    regen.add_argument("--dry-run", action="store_true", help="Read and validate the plan without writing")
+    regen.add_argument("--web-app-url", help="Defaults to LORE_SHEETS_WEB_APP_URL")
     return p
 
 
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
+        if args.command == "regenerate":
+            from .regeneration import regenerate
+            report = regenerate(args.file_id, args.sheet_name, web_app_url=args.web_app_url, dry_run=args.dry_run)
+            emit(report)
+            return 0 if report["status"] in ("regenerated", "planned") else 1
         if args.command == "auth":
             from .google import authorize
             authorize(args.client_secrets, args.token)

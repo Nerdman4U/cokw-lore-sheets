@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cokw-lore-sheets"
 version = "0.1.0"
-description = "Read-only Google Sheets snapshots, configurable checks and offline comparisons"
+description = "Google Sheets audits, offline comparisons and schema-driven TMP regeneration"
 requires-python = ">=3.11"
 readme = "README.md"
 

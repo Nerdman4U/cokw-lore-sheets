@@ -1,4 +1,4 @@
-"""Read-only Apps Script transport; no local Google OAuth dependencies."""
+"""Authenticated Apps Script transport; audit capture methods remain read-only."""
 import json
 import os
 import re
@@ -27,6 +27,7 @@ class WebAppProvider:
         if not isinstance(result, dict) or result.get("ok") is not True:
             code = result.get("error") if isinstance(result, dict) else None
             allowed = {"UNAUTHORIZED", "INVALID_REQUEST", "GOOGLE_READ_FAILED", "UNSTABLE_READ", "SHEET_TOO_LARGE", "API_DISABLED", "PERMISSION_DENIED", "GOOGLE_UNAUTHORIZED", "ACCOUNT_UNAVAILABLE", "UNSUPPORTED_SHEET"}
+            allowed.update(['BACKUP_READBACK_FAILED', 'DUPLICATE_HEADERS', 'DUPLICATE_ROW_KEY', 'INPUT_COLUMN_CHANGED', 'INPUT_READBACK_FAILED', 'INPUT_WITHOUT_ROW_KEY', 'INVALID_FORMULA_ROW', 'INVALID_FORMULA_ROWS', 'INVALID_REQUEST', 'INVALID_ROW_KEY', 'INVALID_TMP_SCHEMA', 'LORE_SHEETS_META_SCHEMA_ID', 'META_SCHEMA_NOT_CONFIGURED', 'MISSING_SOURCE_HEADER', 'MISSING_SOURCE_SHEET', 'RECOVERY_BACKUP_CHANGED', 'RECOVERY_BACKUP_MISSING', 'RECOVERY_PENDING', 'REGENERATION_BUSY', 'REGENERATION_WRITE_FAILED', 'ROW_KEYS_CHANGED', 'ROW_KEYS_NOT_READY', 'SCHEMA_CHANGED', 'SCHEMA_NOT_ASSIGNED', 'SCHEMA_TOO_LARGE', 'TARGET_CHANGED', 'TARGET_NOT_REGISTERED', 'UNKNOWN_FORMULA_PLACEHOLDER'])
             raise ValueError("Web app error: " + (code if isinstance(code, str) and code in allowed else "INVALID_RESPONSE"))
         return result["data"]
 

@@ -10,7 +10,7 @@
 | Runtime | Python 3.11+; Google Apps Script V8 for the web app |
 | Purpose | Google Sheets audit snapshots, configurable checks and offline comparisons |
 
-A general-purpose, read-only Google Sheets auditing CLI. Capture an evening snapshot, capture another in the morning, and compare them offline. Code, tests and examples contain no user-specific file IDs, credentials or application-specific data.
+A general-purpose Google Sheets auditing CLI with a separate, explicit TMP regeneration command. Capture an evening snapshot, capture another in the morning, and compare them offline. Code, tests and examples contain no user-specific file IDs, credentials or application-specific data.
 
 ## First version
 
@@ -25,7 +25,7 @@ A general-purpose, read-only Google Sheets auditing CLI. Capture an evening snap
 
 Sparse storage means absent cells are empty; they are still tested when included in a check range. Row-relative formulas are stored exactly, not normalized into one shared formula template.
 
-This is an audit tool, not a repair or restoration tool. It does not modify Google files. A hash detects changes; it does not prove a spreadsheet is correct or authenticate a snapshot's author.
+Audit commands do not modify Google files. The separate **regenerate** command intentionally rebuilds registered TMP_ sheets and preserves keyed inputs. A hash detects changes; it does not prove a spreadsheet is correct or authenticate a snapshot's author.
 
 ## Install
 
@@ -98,7 +98,7 @@ Only **drive.metadata.readonly** and **spreadsheets.readonly** are requested. Th
 
 Use **--token PATH** on auth and dump for another private token. Refresh tokens are used without opening a browser during ordinary dumps. If authorization expires or is revoked, run auth again. OAuth testing/consent and verification requirements depend on your Google Cloud configuration. Publishing this source does not supply a shared OAuth client.
 
-Tokens must stay outside Git. Snapshots and reports may be written inside a Git working tree only when git check-ignore confirms the destination is ignored (for example tmp/); tracked files are never exempted. The ignore file also excludes common credentials, local config and capture names. Keep your downloaded client JSON and private config outside Git too. Snapshots can contain confidential spreadsheet contents.
+Tokens must stay outside Git. Snapshots and reports may be written inside a Git working tree only when git check-ignore confirms the destination is ignored (for example audit/); tracked files are never exempted. The ignore file also excludes common credentials, local config and capture names. Keep your downloaded client JSON and private config outside Git too. Snapshots can contain confidential spreadsheet contents.
 
 Google references:
 
@@ -263,3 +263,85 @@ Check targeting has two stages: **file_pattern** limits candidate files, then **
 ~~~
 
 **list** displays one row per selected name with a blank Cell column, the name as typed Input, and no calculated Result. JSON marks the row **target: sheet_name** and **cell: null**. **check --format summary** groups name and cell checks on the same file/sheet: any failed requirement makes that line ERROR. Name checks work even when a sheet has no grid/cells or results were not captured. Missing **pattern** or an invalid regex is rejected before evaluation.
+
+
+## Regenerate schema-driven TMP sheets
+
+```powershell
+cokw-lore-sheets regenerate <spreadsheet-id>
+cokw-lore-sheets regenerate <spreadsheet-id> TMP_Example
+cokw-lore-sheets regenerate <spreadsheet-id> TMP_Example --dry-run
+```
+
+This is a separate writing subsystem (`regeneration.py` and `apps-script/Regeneration.gs`).
+No capture, list, check or compare command invokes it. The same web app URL and API key are used.
+Configure the Apps Script property **LORE_SHEETS_META_SCHEMA_ID** once with the private metadata
+workbook ID, then publish both Apps Script files together. No spreadsheet IDs belong in this repository.
+Existing spreadsheet permissions already include the required write scope; Drive remains read-only.
+
+The CLI first POSTs **regenerationSchema** to read/validate the metadata and target, then POSTs
+**regenerate** with that exact schema revision. `--dry-run` only performs the first request.
+An omitted sheet name selects all schemas explicitly assigned to the given workbook.
+Only registered `TMP_` targets are accepted. Model workbooks also need explicit assignments;
+the program does not infer assignments from other workbooks using a model.
+
+The metadata workbook has four sheets (row 1 contains headers):
+
+| Sheet | Required columns |
+| --- | --- |
+| Skeemat | Nimi, Otsikko, Järjestys, LahdeVälilehti, Kaava, Kaavarivit, Riviavain, Format |
+| Mallit | MalliID |
+| Tiedostot | TiedostoID, MalliID |
+| TiedostojenSkeemat | TiedostoID, Skeema |
+
+`Nimi` identifies a TMP sheet; `Otsikko` is its column header; unique positive integer `Järjestys`
+values order columns. Exactly one column per schema has `Riviavain=TRUE`; the others are FALSE.
+Blank `Kaava` means user input, including zero, false and dates. Header matching is exact after
+trimming whitespace. `LähdeOtsikko` and `EsimerkkiKaava` may provide descriptive information;
+the Kaava field controls executable formulas. `Format` is passed to Sheets unchanged.
+
+Formulas may contain any native Sheets expression. Only these reserved placeholders are expanded:
+
+| Placeholder | Expansion |
+| --- | --- |
+| `{SRC:Header}` | Current column under Header on LahdeVälilehti, row 2 through its open-ended column |
+| `{COL_30}` | TMP column whose Järjestys is 30 |
+| `{R}`, `{R-1}`, `{R+1}` | Target row, previous row, next row |
+
+`Kaavarivit` specifies `2`, `2:14`, or `2:MAX`. MAX is the existing grid's last row; a new
+TMP sheet starts with 1,000 rows. A spill formula is written once when the metadata specifies `2`.
+No function-name heuristics or custom spreadsheet formula interpreter are used.
+Missing/duplicate source headers, duplicate keys, input rows without keys and bad assignments
+are rejected before any target is cleared. Native formula syntax is evaluated by Sheets after writing.
+
+Before changing any target, a hidden **TMP_BACKUP_<id>** sheet stores a versioned JSON recovery
+snapshot, including old cell values/formulas and the keyed input mapping. Existing TMP sheet IDs
+are preserved. Headers, formats and calculated columns are rebuilt; inputs return to the matching
+key, even if row order changes. New keys have blank inputs. Removed keys and removed columns
+remain in the backup and are reported as orphaned/unmapped. Key names must remain stable;
+a renamed key cannot be automatically identified as its old name.
+
+`flush()` plus bounded polling waits for error-free, stable key reads before restoration.
+An import still loading produces **pending**; a write/readback error produces
+**recovery_required**. Both return the backup sheet name/ID and CLI exit code 1. Rerun the exact
+same command with unchanged metadata to resume from the persisted original input snapshot.
+Do not change the selected schema set or schema metadata while recovery is pending.
+After restoring inputs, native calculation errors are reported as **regenerated_with_errors**
+and orphaned inputs/unmapped columns as **regenerated_with_warnings**, both with exit code 1.
+Calculation errors in other columns do not prevent restoring inputs first.
+The backup stays in the workbook even after success; cleanup is manual.
+
+If old row keys are already broken before the first regeneration, the tool stops rather than
+guessing where input belongs. Recover those keys from a prior backup/source before proceeding.
+Do not edit the target manually during regeneration. ScriptLock serializes this application's
+writes, but cannot lock out human edits or make multiple spreadsheet operations atomic.
+The pre-write recheck detects changes during preparation. If source changes have already
+replaced old key results with different values, their previous meaning cannot be inferred from
+the new results. Keep source changes and regeneration coordinated; prior backups remain the
+recovery source, and unmatched inputs are reported rather than silently discarded. Polling observes calculated values;
+it is not a transactional guarantee that every external import has permanently stabilized.
+
+Schema/input grids are bounded to prevent oversized Apps Script requests (250,000 target cells;
+5,000 metadata rows). Exit code 0 means regenerated/planned, 1 means warnings, calculation errors or pending/recovery required,
+and 2 means invalid setup, preflight failure or transport failure. A timeout must not be treated
+as proof that no write happened: rerun to use the server-side pending recovery record.

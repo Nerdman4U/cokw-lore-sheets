@@ -28,3 +28,4 @@ tmp/
 
 # Private manually exported audit report
 /testi.txt
+audit/

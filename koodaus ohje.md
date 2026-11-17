@@ -3,7 +3,7 @@
 Build a general-purpose, public Python command-line tool for auditing Google Sheets.
 
 - Keep story, organization and user-specific content out of code, examples and tests.
-- Use read-only Google Drive and Sheets operations. This version must not modify spreadsheets.
+- Audit commands use read-only Google Drive and Sheets operations. Explicit TMP regeneration is a separate writing subsystem and must preserve keyed inputs in a persistent recovery snapshot before changing target sheets.
 - Keep credentials, tokens, private configuration, snapshots and reports outside the repository.
 - Use UTF-8 explicitly for text files and deterministic SHA-256 hashing of canonical JSON.
 - Separate Google access, snapshot handling, checks and CLI code. Offline comparison and unit tests must not require Google packages or credentials.
@@ -15,3 +15,5 @@ Build a general-purpose, public Python command-line tool for auditing Google She
 
 - Apps Script web app uses built-in DriveApp and SpreadsheetApp only; no UrlFetchApp or Advanced Services. Document built-in capture limitations and keep its baseline profile separate from exact API captures.
 - Run node tests/webapp-script.test.cjs when changing the Apps Script adapter.
+
+- TMP regeneration reads its private metadata workbook ID from LORE_SHEETS_META_SCHEMA_ID in Script properties. Keep target IDs out of public code. Test reorder preservation, preflight refusal, failed writes and pending retries with synthetic workbooks. Run node tests/regeneration-script.test.cjs.
