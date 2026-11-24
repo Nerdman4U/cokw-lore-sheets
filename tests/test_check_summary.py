@@ -1,4 +1,5 @@
 import io
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -55,4 +56,5 @@ class SummaryTests(unittest.TestCase):
                 self.assertEqual(main(args+["--output",str(out)]),0)
                 self.assertEqual(main(args+["--output",str(out)]),2)
             self.assertTrue(stdout.getvalue().strip().endswith(" OK"))
-            self.assertEqual(out.read_text(encoding="utf-8"),stdout.getvalue())
+            self.assertEqual(re.sub(r"check=[0-9.]+ms", "check=TIMED", out.read_text(encoding="utf-8")),
+                             re.sub(r"check=[0-9.]+ms", "check=TIMED", stdout.getvalue()))

@@ -45,6 +45,7 @@ def parser():
     diff = sub.add_parser("compare", help="Compare two complete snapshots, offline")
     diff.add_argument("before", type=Path)
     diff.add_argument("after", type=Path)
+    diff.add_argument("--config", type=Path, help="Optional anomaly thresholds")
     diff.add_argument("--results", action="store_true", help="Include per-cell calculated result changes")
     diff.add_argument("--output", type=Path)
     regen = sub.add_parser("regenerate", help="Regenerate assigned TMP sheets, preserving keyed inputs")
@@ -69,11 +70,12 @@ def main(argv=None):
             print(f"Read-only authorization saved to {args.token}")
             return 0
         if args.command == "compare":
-            report = compare(load_json(args.before), load_json(args.after), args.results)
+            report = compare(load_json(args.before), load_json(args.after), args.results,
+                             validate(load_json(args.config)) if args.config else None)
             if args.output:
                 write_json(args.output, report)
             emit(report)
-            return 1 if report["has_changes"] else 0
+            return 1 if report["has_changes"] or report["sheet_audit"]["warnings"] else 0
         config = validate(load_json(args.config))
         if args.command == "list":
             from .listing import list_cells, render

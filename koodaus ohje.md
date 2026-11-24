@@ -17,3 +17,7 @@ Build a general-purpose, public Python command-line tool for auditing Google She
 - Run node tests/webapp-script.test.cjs when changing the Apps Script adapter.
 
 - TMP regeneration reads its private metadata workbook ID from LORE_SHEETS_META_SCHEMA_ID in Script properties. Keep target IDs out of public code. Test reorder preservation, preflight refusal, failed writes and pending retries with synthetic workbooks. Run node tests/regeneration-script.test.cjs.
+
+
+- Formula footprint diagnostics count exact formula inputs, not spill result rows or allocated grid rows. Blank results are review evidence only; never automatically delete formulas based on them. Preserve suspicious cells in snapshots and repair confirmed defects at the source spreadsheet.
+- Per-sheet load metrics are measured in the built-in WebApp. Workbook round-trip, local normalization and local checking times are separate. Missing per-sheet measurements remain null; never fabricate them from workbook totals. Timing metadata is excluded from hashes.

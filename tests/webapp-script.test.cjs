@@ -32,6 +32,8 @@ assert.equal(run({api_key:'secret',action:'list',selection:{owned_only:true,fold
 const request={api_key:'secret',action:'fetch',file_id:'file',include_results:true,max_cells_per_sheet:100};
 let data=run(request).data;
 const cells=data.spreadsheet.sheets[0].data[0].rowData[0].values;
+assert.equal(typeof data.spreadsheet.sheets[0].capture_timings.load_ms,"number");
+assert.ok(data.spreadsheet.sheets[0].capture_timings.load_ms>=0);
 assert.equal(cells[0].userEnteredValue.formulaValue,'=1+1');
 assert.equal(cells[0].effectiveValue.numberValue,2);
 assert.equal(cells[1].userEnteredValue.boolValue,false);

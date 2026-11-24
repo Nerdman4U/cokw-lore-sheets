@@ -56,7 +56,7 @@ def validate(raw):
     if not isinstance(raw, dict):
         raise ValueError("Configuration must be a JSON object")
     unknown = set(raw) - {"version", "files", "checks", "include_results",
-                          "max_cells_per_sheet", "max_check_cells"}
+                          "max_cells_per_sheet", "max_check_cells", "anomalies"}
     if unknown:
         raise ValueError("Unknown config fields: " + ", ".join(sorted(unknown)))
     if type(raw.get("version", 1)) is not int or raw.get("version", 1) != 1:
@@ -120,7 +120,8 @@ def validate(raw):
         if type(value) is not int or value < 1:
             raise ValueError(f"{key} must be a positive integer")
         limits[key] = value
-    return {"version": 1, "files": files, "checks": rules,
+    from .anomalies import settings
+    return {"anomalies": settings(raw.get("anomalies")), "version": 1, "files": files, "checks": rules,
             "include_results": results, **limits}
 
 

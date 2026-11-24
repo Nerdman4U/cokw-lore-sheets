@@ -82,6 +82,7 @@ function scalar_(value, timeZone) {
 function book_(book, request) {
   const timeZone = book.getSpreadsheetTimeZone();
   const sheets = book.getSheets().map(sheet => {
+    const sheetStarted=Date.now();
     if (String(sheet.getType()) !== 'GRID') throw new Error('UNSUPPORTED_SHEET');
     const rows=sheet.getMaxRows(), columns=sheet.getMaxColumns();
     if (rows*columns>request.max_cells_per_sheet) throw new Error('SHEET_TOO_LARGE');
@@ -95,7 +96,8 @@ function book_(book, request) {
       if (request.include_results) cell.effectiveValue=scalar;
       return cell;
     })}));
-    return {properties:props,data:[{startRow:0,startColumn:0,rowData:rowData}]};
+    return {properties:props,data:[{startRow:0,startColumn:0,rowData:rowData}],
+      capture_timings:{load_ms:Date.now()-sheetStarted,load_measurement:"server-side sheet properties, values, formulas and serialization preparation"}};
   });
   const namedRanges=book.getNamedRanges().map(named => {
     const range=named.getRange();

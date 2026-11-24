@@ -1,3 +1,4 @@
+import re
 import unittest
 from cokw_lore_sheets.config import validate
 from cokw_lore_sheets.checks import evaluate,summary_lines
@@ -18,7 +19,7 @@ class SheetNameChecks(unittest.TestCase):
         self.assertEqual(len(report["failures"]),1)
         self.assertEqual(report["failures"][0]["sheet_name"],"IMP_bad")
         self.assertIsNone(report["failures"][0]["cell"])
-        self.assertEqual(set(summary_lines(self.snap,cfg,report)),{"Book-IMP_GOOD OK","Book-IMP_bad ERROR"})
+        self.assertEqual({re.sub(r" \[load=.*?\]", "", line) for line in summary_lines(self.snap,cfg,report)},{"Book-IMP_GOOD OK","Book-IMP_bad ERROR"})
 
     def test_listing_contains_names_instead_of_cell_values(self):
         report=list_cells(self.snap,validate(self.raw))

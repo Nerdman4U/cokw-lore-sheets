@@ -345,3 +345,58 @@ Schema/input grids are bounded to prevent oversized Apps Script requests (250,00
 5,000 metadata rows). Exit code 0 means regenerated/planned, 1 means warnings, calculation errors or pending/recovery required,
 and 2 means invalid setup, preflight failure or transport failure. A timeout must not be treated
 as proof that no write happened: rerun to use the server-side pending recovery record.
+
+
+## Morning audit: formula footprints and separate timings
+
+`dump`, offline `check`, and `compare` include `sheet_audit` diagnostics for every
+captured worksheet, even when its content hash did not change overnight. They
+report actual formula cells/rows, last formula/literal/result rows, grid size,
+and suspicious long formula ranges or blank-result formula tails. An IMPORTRANGE
+spill with 2,000 result rows is still one formula. Reserved empty grid rows alone
+are not a warning. Zero, false, errors and unavailable results are never treated
+as confirmed blank outputs. Incomplete captures are labelled explicitly.
+
+Default warning limits are formula row 500, 500 distinct formula rows, and 100
+distinct blank-tail rows beyond the last literal input. These are review
+thresholds, not assertions that a formula is useless. Configure expected large
+tables separately, or lower limits for small forms:
+
+```json
+{"anomalies":{"enabled":true,"max_formula_row":500,"max_formula_rows":500,
+ "min_blank_tail_rows":100,"rules":[
+  {"file_pattern":"Example profile","sheet_pattern":"^Data$","max_formula_row":100},
+  {"file_pattern":"Example large table","max_formula_row":5000,"max_formula_rows":5000}
+ ]}}
+```
+
+This is an additional top-level member of the normal capture configuration;
+`compare before.json after.json --config config.json` uses the same overrides.
+Without `--config`, compare uses default limits. Warnings return exit code 1 and
+appear even with no input differences. Configured cell checks keep their target
+selection; an unrelated clean tab is not added to the concise IMP check listing.
+All tabs and their metrics remain present in the JSON report. Warning entries
+identify stable file/sheet IDs and exact blank-tail A1 ranges for review.
+
+Confirmed surplus formulas must be removed from the spreadsheet itself, not
+filtered from the audit snapshot. The audit preserves them as evidence. Blank
+outputs may represent intentional future calculations, and snapshot values do
+not establish dependencies, so the audit never automatically deletes formulas.
+Review the indicated ranges against the intended row bounds and dependants,
+then repair the source sheet; the next capture verifies the repair.
+
+Per-sheet metrics have separate meanings:
+
+- `load_ms`: built-in WebApp server time for that sheet's properties, value and
+  formula reads and response preparation; requires the updated WebApp.
+- `normalize_ms`: local conversion of that sheet to sparse snapshot cells.
+- `check_ms`: local cell checks plus anomaly analysis for that sheet.
+- `workbook_transfer_ms`: the full workbook request duration, including network,
+  server work, consistency checks and any retries; it is not added to each tab.
+
+Old snapshots and the OAuth batch transport report `load_ms:null` with an
+explanation because independent tab load times were not measured. Do not infer
+per-sheet transfer times by dividing a workbook duration. Timing fields are
+outside content/result hashes, so durations do not create false change alarms.
+The JSON report contains every tab; concise output displays timings on selected
+checks and warnings. Snapshot files are never modified by offline checking.

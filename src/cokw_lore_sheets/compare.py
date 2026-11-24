@@ -9,7 +9,7 @@ def compatible(before, after):
             raise ValueError(f"Snapshot {key} differs; use the same account and capture configuration")
 
 
-def compare(before, after, include_results=False):
+def compare(before, after, include_results=False, config=None):
     compatible(before, after)
     if include_results and not after["include_results"]:
         raise ValueError("Results were not captured")
@@ -55,7 +55,9 @@ def compare(before, after, include_results=False):
                         change("cell_"+key+"_changed", b, sheet_id=sid,
                                sheet_name=y["properties"]["title"], cell=addr,
                                before=prior, after=current)
-    return {"format": "sheets-audit-comparison-v1", "before": before["created_at"],
+    from .anomalies import audit
+    sheet_audit = audit(after, config or {})
+    return {"sheet_audit": sheet_audit, "format": "sheets-audit-comparison-v1", "before": before["created_at"],
             "after": after["created_at"], "has_changes": bool(changes), "changes": changes,
             "result_hash_changes": result_hash_changes,
             "results_included_in_changes": include_results}

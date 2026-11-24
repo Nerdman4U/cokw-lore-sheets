@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import re
+from time import perf_counter
 
 from .config import address, selected
 
@@ -39,6 +40,7 @@ def normalize(metadata, spreadsheet, config):
         raise ValueError("Spreadsheet ID differs from file ID")
     sheets, seen = [], set()
     for item in spreadsheet.get("sheets", []):
+        normalize_started = perf_counter()
         props = item["properties"]
         sid = props["sheetId"]
         if sid in seen:
@@ -63,7 +65,8 @@ def normalize(metadata, spreadsheet, config):
                         cells[addr] = {"input": entered}
                         if config["include_results"]:
                             cells[addr]["result"] = result
-        sheets.append({"properties": props, "cells": cells})
+        timings = {**item.get("capture_timings", {}), "normalize_ms": round((perf_counter()-normalize_started)*1000, 3)}
+        sheets.append({"properties": props, "cells": cells, "timings": timings})
     book = {"id": metadata["id"], "name": metadata["name"],
             "parents": sorted(metadata.get("parents", [])),
             "drive_version": metadata.get("version"),
@@ -99,8 +102,12 @@ def capture(provider, config):
                   for fid in sorted(missing))
     for file in sorted(chosen, key=lambda f: f["id"]):
         try:
+            fetch_started = perf_counter()
             meta, raw = provider.fetch(file, config)
-            files.append(normalize(meta, raw, config))
+            transfer_ms = round((perf_counter()-fetch_started)*1000, 3)
+            normalized = normalize(meta, raw, config)
+            normalized["timings"] = {"transfer_ms": transfer_ms, "scope": "whole workbook request including network and server work"}
+            files.append(normalized)
         except Exception as exc:
             # Avoid dumping OAuth tokens or URLs from third-party exception messages.
             status = getattr(getattr(exc, "resp", None), "status", None)
